@@ -47,6 +47,7 @@
   /* TODO: get rid of this code duplication with lb-boundaries.h by solving the
            cuda-mpi incompatibility */
 
+
 #define LATTICE_OFF      0
 #define LATTICE_LB_CPU   1
 #define LATTICE_LB_GPU   2
