@@ -621,8 +621,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_U00]]
             ) * agrid_inv
             +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_U00]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_U00]]
             ) * agrid_inv
             +
             ek_parameters_gpu.ext_force[0][species_index]
@@ -655,8 +655,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
                ((cufftReal*)ek_parameters_gpu.charge_potential)[index_padded]
              ) * agrid_inv
              -1.0f *
-             ( (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_U00]] -
-               (ek_parameters_gpu.ev_potential)[index_padded]
+             ( (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_U00]] -
+               (ek_parameters_gpu.ev_potential)[index]
              ) * agrid_inv;
 
     force *= force_conv;
@@ -680,8 +680,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_0U0]]
             ) * agrid_inv
             +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_0U0]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_0U0]]
             ) * agrid_inv
             +
             ek_parameters_gpu.ext_force[1][species_index]
@@ -710,8 +710,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
   else
   {
     force  = -1.0f * ek_parameters_gpu.valency[species_index] *
-             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_0U0]] -
-               ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded]
+             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex[EK_LINK_0U0]] -
+               ((cufftReal*) ek_parameters_gpu.charge_potential)[index]
              ) * agrid_inv
              -1.0f *
              ( (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_0U0]] -
@@ -743,8 +743,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_00U]]
             ) * agrid_inv
             +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_00U]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_00U]]
             ) * agrid_inv
             +
             ek_parameters_gpu.ext_force[2][species_index]
@@ -777,8 +777,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
                ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded]
              ) * agrid_inv
              -1.0f *
-             ( (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_00U]] -
-               (ek_parameters_gpu.ev_potential)[index_padded]
+             ( (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_00U]] -
+               (ek_parameters_gpu.ev_potential)[index]
              ) * agrid_inv;
 
     force *= force_conv;
@@ -805,8 +805,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded] -
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_UU0]]
             ) * sqrt2agrid_inv +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_UU0]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_UU0]]
             ) * sqrt2agrid_inv +
             ( ek_parameters_gpu.ext_force[0][species_index] +
               ek_parameters_gpu.ext_force[1][species_index]
@@ -845,8 +845,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded] -
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_UD0]]
             ) * sqrt2agrid_inv +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_UD0]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_UD0]]
             ) * sqrt2agrid_inv +
             ( ek_parameters_gpu.ext_force[0][species_index] -
               ek_parameters_gpu.ext_force[1][species_index]
@@ -885,8 +885,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded] -
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_U0U]]
             ) * sqrt2agrid_inv +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_U0U]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_U0U]]
             ) * sqrt2agrid_inv +
             ( ek_parameters_gpu.ext_force[0][species_index] +
               ek_parameters_gpu.ext_force[2][species_index]
@@ -924,8 +924,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded] -
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_U0D]]
             ) * sqrt2agrid_inv +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_U0D]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_U0D]]
             ) * sqrt2agrid_inv +
             ( ek_parameters_gpu.ext_force[0][species_index] -
               ek_parameters_gpu.ext_force[2][species_index]
@@ -964,8 +964,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded] -
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_0UU]]
             ) * sqrt2agrid_inv +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_0UU]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_0UU]]
             ) * sqrt2agrid_inv +
             ( ek_parameters_gpu.ext_force[1][species_index] +
               ek_parameters_gpu.ext_force[2][species_index]
@@ -1003,8 +1003,8 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
             ( ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded] -
               ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_0UD]]
             ) * sqrt2agrid_inv +
-            ( (ek_parameters_gpu.ev_potential)[index_padded] -
-              (ek_parameters_gpu.ev_potential)[neighborindex_padded[EK_LINK_0UD]]
+            ( (ek_parameters_gpu.ev_potential)[index] -
+              (ek_parameters_gpu.ev_potential)[neighborindex[EK_LINK_0UD]]
             ) * sqrt2agrid_inv +
             ( ek_parameters_gpu.ext_force[1][species_index] -
               ek_parameters_gpu.ext_force[2][species_index]
