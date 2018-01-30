@@ -2478,6 +2478,37 @@ void ek_init_species( int species ) {
   }
 }
 
+__global__ void ek_calculate_ev_potential() {
+
+  unsigned int index = ek_getThreadIndex();
+  unsigned int coord[3];
+
+  rhoindex_linear2cartesian(index, coord);
+
+  unsigned int center[3] = { (float) ek_parameters_gpu.dim_x / 2.0f, 
+                             (float) ek_parameters_gpu.dim_y / 2.0f, 
+                             (float) ek_parameters_gpu.dim_z / 2.0f};
+
+  float cutoff = ek_parameters_gpu.agrid * sqrtf(2.0f);
+  float a = 1.0f;
+
+  if(index < ek_parameters_gpu.number_of_nodes) 
+  {  
+    float r = sqrtf((coord[0]-center[0])*(coord[0]-center[0])+
+                    (coord[1]-center[1])*(coord[1]-center[1])+
+                    (coord[2]-center[2])*(coord[2]-center[2]));
+ 
+    if(r < cutoff)
+    {
+      ek_parameters_gpu.ev_potential[index] = -a/cutoff * r + a;
+    }
+    else
+    {
+      ek_parameters_gpu.ev_potential[index] = 0.0;  
+    }
+
+  }
+}
 
 int ek_init() {
   if( ek_parameters.agrid < 0.0 ||
@@ -2596,6 +2627,20 @@ int ek_init() {
       return 1;
     }
    
+    //initialize excluded volume
+    cuda_safe_mem( cudaMalloc( (void**) &ek_parameters.ev_potential,
+                             ek_parameters.number_of_nodes * sizeof( float ) ) );
+
+    cuda_safe_mem( cudaMemcpyToSymbol( ek_parameters_gpu, &ek_parameters, sizeof( EK_parameters ) ) );
+
+    blocks_per_grid_x =
+      ( ek_parameters.dim_z * ek_parameters.dim_y * (ek_parameters.dim_x ) +
+        threads_per_block * blocks_per_grid_y - 1
+      ) / ( threads_per_block * blocks_per_grid_y );
+    dim_grid = make_uint3( blocks_per_grid_x, blocks_per_grid_y, 1 );
+    KERNELCALL( ek_calculate_ev_potential, dim_grid, threads_per_block, () );
+
+
     //initialize electrostatics
     if(electrostatics != nullptr)
       delete electrostatics;
