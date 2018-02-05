@@ -83,7 +83,6 @@ typedef struct {
   float *electric_field;
 #endif
   float* charge_potential;
-  float* ev_potential;
   ekfloat* j;
   float* lb_force_previous;
   ekfloat* rho[MAX_NUMBER_OF_SPECIES];
