@@ -2358,7 +2358,7 @@ void ek_integrate() {
     KERNELCALL( ek_calculate_quantities, dim_grid, threads_per_block,
                 ( i, *current_nodes, node_f, ek_lbparameters_gpu, ek_lb_device_values ) );
     KERNELCALL( ek_apply_ev, particle_dim_grid, threads_per_block, 
-		        ( gpu_get_particle_pointer(), k_lbparameters_gpu, i ) );
+		        ( gpu_get_particle_pointer(), ek_lbparameters_gpu, i ) );
               
 #ifdef EK_BOUNDARIES
     if( ek_parameters.stencil == 1)
