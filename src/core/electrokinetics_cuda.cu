@@ -2510,7 +2510,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
 
     //Lowernode + x
     
-    node_index = rhoindex_cartesian2linear( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, lowernode[1], lowernode[2] );   
+    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, lowernode[1], lowernode[2] );   
     
     ev_force[0] = 1.0f - cellpos[0];
     ev_force[1] = -cellpos[1];
