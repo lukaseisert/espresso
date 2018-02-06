@@ -649,7 +649,7 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
     force  = -1.0f * ek_parameters_gpu.valency[species_index] *
              ( ((cufftReal*)ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_U00]] -
                ((cufftReal*)ek_parameters_gpu.charge_potential)[index_padded]
-             ) * agrid_inv
+             ) * agrid_inv;
 
     force *= force_conv;
              
@@ -700,7 +700,7 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
     force  = -1.0f * ek_parameters_gpu.valency[species_index] *
              ( ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex[EK_LINK_0U0]] -
                ((cufftReal*) ek_parameters_gpu.charge_potential)[index]
-             ) * agrid_inv
+             ) * agrid_inv;
 
     force *= force_conv;
 
@@ -755,7 +755,7 @@ __device__ void ek_diffusion_migration_lbforce_linkcentered_stencil(unsigned int
     force  = -1.0f * ek_parameters_gpu.valency[species_index] *
              ( ((cufftReal*) ek_parameters_gpu.charge_potential)[neighborindex_padded[EK_LINK_00U]] -
                ((cufftReal*) ek_parameters_gpu.charge_potential)[index_padded]
-             ) * agrid_inv
+             ) * agrid_inv;
 
     force *= force_conv;
 
@@ -1817,6 +1817,264 @@ __global__ void ek_propagate_densities( unsigned int species_index
 }
 
 
+__global__ void ek_apply_ev( CUDA_particle_data * particle_data,
+                                                   LB_parameters_gpu * ek_lbparameters_gpu,
+                                                   unsigned int species_index
+                                                 ) {
+
+  unsigned int index = ek_getThreadIndex();
+  int lowernode[3];
+  float cellpos[3];
+  float gridpos;
+  
+  unsigned int node_index;
+  
+  float invnorm;
+  float ev_force_norm = 1.0;
+  float ev_force[3];
+  float prefactor;
+  
+  float agrid_inv = 1.0f / ek_parameters_gpu.agrid;
+  float sqrt2_inv = 1.0f / sqrtf(2.0f);
+
+  if( index < ek_lbparameters_gpu->number_of_particles ) 
+  {  
+    gridpos      = particle_data[ index ].p[0] / ek_parameters_gpu.agrid - 0.5f;
+    lowernode[0] = (int) floorf( gridpos );
+    cellpos[0]   = gridpos - lowernode[0];
+  
+    gridpos      = particle_data[ index ].p[1] / ek_parameters_gpu.agrid - 0.5f;
+    lowernode[1] = (int) floorf( gridpos );
+    cellpos[1]   = gridpos - lowernode[1];
+  
+    gridpos      = particle_data[ index ].p[2] / ek_parameters_gpu.agrid - 0.5f;
+    lowernode[2] = (int) floorf( gridpos );
+    cellpos[2]   = gridpos - lowernode[2];
+
+    lowernode[0] = (lowernode[0] + ek_lbparameters_gpu->dim_x) % ek_lbparameters_gpu->dim_x;
+    lowernode[1] = (lowernode[1] + ek_lbparameters_gpu->dim_y) % ek_lbparameters_gpu->dim_y;
+    lowernode[2] = (lowernode[2] + ek_lbparameters_gpu->dim_z) % ek_lbparameters_gpu->dim_z;
+
+    
+    //Lowernode
+    
+    node_index = rhoindex_cartesian2linear( lowernode[0], lowernode[1], lowernode[2] );    
+    
+    ev_force[0] = -cellpos[0];
+    ev_force[1] = -cellpos[1];
+    ev_force[2] = -cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+             
+
+    //Lowernode + x
+    
+    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, lowernode[1], lowernode[2] );   
+    
+    ev_force[0] = 1.0f - cellpos[0];
+    ev_force[1] = -cellpos[1];
+    ev_force[2] = -cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+    
+    
+    //Lowernode + y
+    
+    node_index = rhoindex_cartesian2linear( lowernode[0], ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, lowernode[2] );   
+    
+    ev_force[0] = -cellpos[0];
+    ev_force[1] = 1.0f - cellpos[1];
+    ev_force[2] = -cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+    
+    
+    //Lowernode + z
+    
+    node_index = rhoindex_cartesian2linear( lowernode[0], lowernode[1], ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
+    
+    ev_force[0] = -cellpos[0];
+    ev_force[1] = -cellpos[1];
+    ev_force[2] = 1.0f - cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+    
+    
+    //Lowernode + x/y
+    
+    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, lowernode[2] );   
+    
+    ev_force[0] = 1.0f - cellpos[0];
+    ev_force[1] = 1.0f - cellpos[1];
+    ev_force[2] = -cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+    
+    
+    //Lowernode + x/z
+    
+    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, lowernode[1], ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
+    
+    ev_force[0] = 1.0f - cellpos[0];
+    ev_force[1] = -cellpos[1];
+    ev_force[2] = 1.0f - cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+
+    
+    //Lowernode + y/z
+    
+    node_index = rhoindex_cartesian2linear( lowernode[0], ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
+    
+    ev_force[0] = -cellpos[0];
+    ev_force[1] = 1.0f - cellpos[1];
+    ev_force[2] = 1.0f - cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+    
+
+    //Lowernode + x/y/z
+    
+    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
+    
+    ev_force[0] = 1.0f - cellpos[0];
+    ev_force[1] = 1.0f - cellpos[1];
+    ev_force[2] = cellpos[2];
+    
+    invnorm = 1.0f / sqrtf( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
+    
+    ev_force[0] *= invnorm * ev_force_norm;
+    ev_force[1] *= invnorm * ev_force_norm;
+    ev_force[2] *= invnorm * ev_force_norm;
+    
+    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
+    
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
+    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
+    
+  }
+}
+
+
 __global__ void ek_apply_boundaries( unsigned int species_index,
                                      LB_nodes_gpu lbnode,
                                      LB_node_force_gpu node_f
@@ -2440,265 +2698,6 @@ void ek_init_species( int species ) {
     ek_parameters.D[            ek_parameters.species_index[ species ] ] / ( 1.0 + 2.0 * sqrt( 2.0 ) );
   }
 }
-
-
-__global__ void ek_apply_ev( CUDA_particle_data * particle_data,
-                                                   LB_parameters_gpu * ek_lbparameters_gpu,
-                                                   unsigned int species_index
-                                                 ) {
-
-  unsigned int index = ek_getThreadIndex();
-  int lowernode[3];
-  float cellpos[3];
-  float gridpos;
-  
-  unsigned int node_index;
-  
-  float invnorm;
-  float ev_force_norm = 1.0;
-  float ev_force[3];
-  float prefactor;
-  
-  float agrid_inv = 1.0f / ek_parameters_gpu.agrid;
-  float sqrt2_inv = 1.0f / sqrtf(2.0f);
-
-  if( index < ek_lbparameters_gpu->number_of_particles ) 
-  {  
-    gridpos      = particle_data[ index ].p[0] / ek_parameters_gpu.agrid - 0.5f;
-    lowernode[0] = (int) floorf( gridpos );
-    cellpos[0]   = gridpos - lowernode[0];
-  
-    gridpos      = particle_data[ index ].p[1] / ek_parameters_gpu.agrid - 0.5f;
-    lowernode[1] = (int) floorf( gridpos );
-    cellpos[1]   = gridpos - lowernode[1];
-  
-    gridpos      = particle_data[ index ].p[2] / ek_parameters_gpu.agrid - 0.5f;
-    lowernode[2] = (int) floorf( gridpos );
-    cellpos[2]   = gridpos - lowernode[2];
-
-    lowernode[0] = (lowernode[0] + ek_lbparameters_gpu->dim_x) % ek_lbparameters_gpu->dim_x;
-    lowernode[1] = (lowernode[1] + ek_lbparameters_gpu->dim_y) % ek_lbparameters_gpu->dim_y;
-    lowernode[2] = (lowernode[2] + ek_lbparameters_gpu->dim_z) % ek_lbparameters_gpu->dim_z;
-
-    
-    //Lowernode
-    
-    node_index = rhoindex_cartesian2linear( lowernode[0], lowernode[1], lowernode[2] );    
-    
-    ev_force[0] = -cellpos[0];
-    ev_force[1] = -cellpos[1];
-    ev_force[2] = -cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-             
-
-    //Lowernode + x
-    
-    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, lowernode[1], lowernode[2] );   
-    
-    ev_force[0] = 1.0f - cellpos[0];
-    ev_force[1] = -cellpos[1];
-    ev_force[2] = -cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-    
-    
-    //Lowernode + y
-    
-    node_index = rhoindex_cartesian2linear( lowernode[0], ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, lowernode[2] );   
-    
-    ev_force[0] = -cellpos[0];
-    ev_force[1] = 1.0f - cellpos[1];
-    ev_force[2] = -cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-    
-    
-    //Lowernode + z
-    
-    node_index = rhoindex_cartesian2linear( lowernode[0], lowernode[1], ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
-    
-    ev_force[0] = -cellpos[0];
-    ev_force[1] = -cellpos[1];
-    ev_force[2] = 1.0f - cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-    
-    
-    //Lowernode + x/y
-    
-    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, lowernode[2] );   
-    
-    ev_force[0] = 1.0f - cellpos[0];
-    ev_force[1] = 1.0f - cellpos[1];
-    ev_force[2] = -cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-    
-    
-    //Lowernode + x/z
-    
-    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, lowernode[1], ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
-    
-    ev_force[0] = 1.0f - cellpos[0];
-    ev_force[1] = -cellpos[1];
-    ev_force[2] = 1.0f - cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-
-    
-    //Lowernode + y/z
-    
-    node_index = rhoindex_cartesian2linear( lowernode[0], ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
-    
-    ev_force[0] = -cellpos[0];
-    ev_force[1] = 1.0f - cellpos[1];
-    ev_force[2] = 1.0f - cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-    
-
-    //Lowernode + x/y/z
-    
-    node_index = rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters_gpu.dim_x, ( lowernode[1] + 1 ) % ek_parameters_gpu.dim_y, ( lowernode[2] + 1 ) % ek_parameters_gpu.dim_z );   
-    
-    ev_force[0] = 1.0f - cellpos[0];
-    ev_force[1] = 1.0f - cellpos[1];
-    ev_force[2] = cellpos[2];
-    
-    invnorm = 1.0f / fsqrt( ev_force[0] * ev_force[0] + ev_force[1] * ev_force[1] + ev_force[2] * ev_force[2] );
-    
-    ev_force[0] *= invnorm * ev_force_norm;
-    ev_force[1] *= invnorm * ev_force_norm;
-    ev_force[2] *= invnorm * ev_force_norm;
-    
-    prefactor = ek_parameters_gpu.rho[species_index][node_index] * ek_parameters_gpu.time_step * agrid_inv;
-    
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], prefactor * ev_force[0] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], prefactor * ev_force[1] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], prefactor * ev_force[2] );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UU0 )], prefactor * (ev_force[0] + ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0U )], prefactor * (ev_force[0] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UU )], prefactor * (ev_force[1] + ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], prefactor * (ev_force[0] - ev_force[1])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], prefactor * (ev_force[0] - ev_force[2])/sqrt2_inv );
-    atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], prefactor * (ev_force[1] - ev_force[2])/sqrt2_inv );
-    
-  }
-}
-
 
 int ek_init() {
   if( ek_parameters.agrid < 0.0 ||
