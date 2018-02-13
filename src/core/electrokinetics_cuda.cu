@@ -1830,6 +1830,10 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
   float node_density;
   float node_density_reduced;
 
+  float j_face;
+  float j_edge;
+  float j_side;
+
   float s = 4.0f;
   float h = (s - 1.0f)*ek_parameters_gpu.agrid/2.0f;
   
@@ -1871,6 +1875,11 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     int node_index_D0U = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
     int node_index_0DU = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
     
+    
+    float flux [25];
+
+    for(int i = 0; i < 25; i++) flux[i] = 0.0f;
+    
 
     //First Step
 
@@ -1894,9 +1903,25 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
 
       node_density_reduced = node_density * volume_prime / volume;
 
+      j_face = d_prime * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
+      j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
+      j_edge = d_prime * h * ek_parameters_gpu.agrid * node_density_reduced;
+
+      flux[EK_LINK_U00] += j_face;
+
+      flux[EK_LINK_UU0] += j_edge;
+      flux[EK_LINK_UD0] += j_edge;
+      flux[EK_LINK_DD0] += j_edge;
+      flux[EK_LINK_DU0] += j_edge;
+
+      flux[EK_LINK_0U0] += j_side;
+      flux[EK_LINK_0D0] += j_side;
+      flux[EK_LINK_00U] += j_side;
+      flux[EK_LINK_00D] += j_side;
+
     }
 
-
+    //float force = 2*flux*agrid/tau;
 
     //Second Step
 
@@ -1906,8 +1931,8 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                               ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * 6.0f * h + 
                               ek_parameters_gpu.agrid * 12.0f * h * h );
 
-    float j_face = node_density_reduced * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * h;
-    float j_edge = node_density_reduced * ek_parameters_gpu.agrid * h * h;
+    j_face = node_density_reduced * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * h;
+    j_edge = node_density_reduced * ek_parameters_gpu.agrid * h * h;
     
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], j_face );
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], j_face );
