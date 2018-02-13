@@ -1823,7 +1823,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                                                  ) {
 
   unsigned int index = ek_getThreadIndex();
-  int lowernode[3];
+  int node[3];
   float cellpos[3];
   float gridpos;
   
@@ -1837,35 +1837,19 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
 
   if( index < ek_lbparameters_gpu->number_of_particles ) 
   {  
-    gridpos      = particle_data[ index ].p[0] / ek_parameters_gpu.agrid;
-    lowernode[0] = (int) floorf( gridpos );
-    cellpos[0]   = gridpos - lowernode[0];
-    
-    //printf("xgridpos: %f \n", gridpos);
-    //printf("xcellpos: %f \n", cellpos[0]);
+    gridpos      = particle_data[ index ].p[0] / ek_parameters_gpu.agrid + 0.5f;
+    node[0] = (int) floorf( gridpos );
 
-    gridpos      = particle_data[ index ].p[1] / ek_parameters_gpu.agrid;
-    lowernode[1] = (int) floorf( gridpos );
-    cellpos[1]   = gridpos - lowernode[1];
-  
-    //printf("ygridpos: %f \n", gridpos);
-    //printf("ycellpos: %f \n", cellpos[1]);
+    gridpos      = particle_data[ index ].p[1] / ek_parameters_gpu.agrid  + 0.5f;
+    node[1] = (int) floorf( gridpos );
 
-    gridpos      = particle_data[ index ].p[2] / ek_parameters_gpu.agrid;
-    lowernode[2] = (int) floorf( gridpos );
-    cellpos[2]   = gridpos - lowernode[2];
-
-    //printf("zgridpos: %f \n", gridpos);
-    //printf("zcellpos: %f \n", cellpos[2]);
+    gridpos      = particle_data[ index ].p[2] / ek_parameters_gpu.agrid  + 0.5f;
+    node[2] = (int) floorf( gridpos );
 
     lowernode[0] = (lowernode[0] + ek_lbparameters_gpu->dim_x) % ek_lbparameters_gpu->dim_x;
     lowernode[1] = (lowernode[1] + ek_lbparameters_gpu->dim_y) % ek_lbparameters_gpu->dim_y;
     lowernode[2] = (lowernode[2] + ek_lbparameters_gpu->dim_z) % ek_lbparameters_gpu->dim_z;
-
-    //printf("xlowernode: %i \n", lowernode[0]);
-    //printf("ylowernode: %i \n", lowernode[1]);
-    //printf("zlowernode: %i \n", lowernode[2]);
-
+    
     
     //Lowernode
     
