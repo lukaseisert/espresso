@@ -1823,20 +1823,14 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                                                  ) {
 
   unsigned int index = ek_getThreadIndex();
-  int node[3];
-  float cellpos[3];
+  int nodepos[3];
   float gridpos;
   
   unsigned int node_index;
   float node_density;
-  
-  float ev_force_norm = 0.1f;
-  float prefactor;
-  
-  float agrid_inv = 1.0f / ek_parameters_gpu.agrid;
-  float sqrt2_inv = 1.0f / sqrtf(2.0f);
+  float node_density_reduced;
 
-  float s = 2.0f;
+  float s = 4.0f;
   float h = (s - 1.0f)*ek_parameters_gpu.agrid/2.0f;
   
   if( index < ek_lbparameters_gpu->number_of_particles ) 
@@ -1854,15 +1848,64 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     nodepos[1] = (nodepos[1] + ek_lbparameters_gpu->dim_y) % ek_lbparameters_gpu->dim_y;
     nodepos[2] = (nodepos[2] + ek_lbparameters_gpu->dim_z) % ek_lbparameters_gpu->dim_z;
     
-    //First Step
     
     node_index = rhoindex_cartesian2linear( nodepos[0], nodepos[1], nodepos[2] );    
+
+    int node_index_U00 = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, nodepos[1], nodepos[2]);
+    int node_index_0U0 = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] + 1) % ek_parameters_gpu.dim_y, nodepos[2]);
+    int node_index_00U = rhoindex_cartesian2linear(nodepos[0], nodepos[1], (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
+    int node_index_UU0 = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, (nodepos[1] + 1) % ek_parameters_gpu.dim_y, nodepos[2]);
+    int node_index_U0U = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
+    int node_index_0UU = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] + 1) % ek_parameters_gpu.dim_y, (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
+    int node_index_UD0 = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, nodepos[2]);
+    int node_index_U0D = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    int node_index_0UD = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] + 1) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+
+    int node_index_D00 = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], nodepos[2]);
+    int node_index_0D0 = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, nodepos[2]);
+    int node_index_00D = rhoindex_cartesian2linear(nodepos[0], nodepos[1], (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    int node_index_DD0 = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, nodepos[2]);
+    int node_index_D0D = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    int node_index_0DD = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    int node_index_DU0 = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] + 1) % ek_parameters_gpu.dim_y, nodepos[2]);
+    int node_index_D0U = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
+    int node_index_0DU = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
+    
+
+    //First Step
+
+    //U00
+    node_density = ek_parameters_gpu.rho[species_index][node_index_U00];
+    float j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )];
+
+    if(j < 0.f)
+    {
+
+      float volume = j/node_density;
+
+      float d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
+
+      float d_prime = (s - 1.0f)*d;
+
+      float volume_prime = d * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                           d_prime * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                           4.0f * d_prime * h * ek_parameters_gpu.agrid +
+                           4.0f * d * h * ek_parameters_gpu.agrid;
+
+      node_density_reduced = node_density * volume_prime / volume;
+
+    }
+
+
+
+    //Second Step
+
     node_density = ek_parameters_gpu.rho[species_index][node_index];
     node_density_reduced = node_density * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid /
                             ( ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
                               ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * 6.0f * h + 
                               ek_parameters_gpu.agrid * 12.0f * h * h );
-    
+
     float j_face = node_density_reduced * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * h;
     float j_edge = node_density_reduced * ek_parameters_gpu.agrid * h * h;
     
@@ -1875,16 +1918,6 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_UD0 )], j_edge );
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U0D )], j_edge );
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0UD )], j_edge );
-    
-    int node_index_D00 = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], nodepos[2]);
-    int node_index_0D0 = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, nodepos[2]);
-    int node_index_00D = rhoindex_cartesian2linear(nodepos[0], nodepos[1], (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
-    int node_index_DD0 = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, nodepos[2]);
-    int node_index_D0D = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
-    int node_index_0DD = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
-    int node_index_DU0 = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] + 1) % ek_parameters_gpu.dim_y, nodepos[2]);
-    int node_index_D0U = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
-    int node_index_0DU = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] + 1) % ek_parameters_gpu.dim_z));
     
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index_D00, EK_LINK_U00 )], - j_face );
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index_0D0, EK_LINK_0U0 )], - j_face );
