@@ -1898,7 +1898,8 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     flux[EK_LINK_0UD] = j_edge;
     flux[EK_LINK_0DU] = j_edge;
     
-    
+    //printf("%f \n",  flux[EK_LINK_U00] );
+
     //Indexing
     neighborindex[EK_LINK_U00] = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, nodepos[1], nodepos[2]);
     neighborindex[EK_LINK_0U0] = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] + 1) % ek_parameters_gpu.dim_y, nodepos[2]);
@@ -1930,7 +1931,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
 
@@ -1941,7 +1942,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       4.0f * d_scaled * h * ek_parameters_gpu.agrid +
                       4.0f * d * h * ek_parameters_gpu.agrid;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
@@ -1960,7 +1961,8 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
       flux[EK_LINK_00D] += j_side;
 
     }
-    
+
+
     //0U0
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_0U0]];
     j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )];
@@ -1968,7 +1970,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
 
@@ -1979,7 +1981,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       4.0f * d_scaled * h * ek_parameters_gpu.agrid +
                       4.0f * d * h * ek_parameters_gpu.agrid;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
@@ -2006,7 +2008,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
 
@@ -2017,7 +2019,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       4.0f * d_scaled * h * ek_parameters_gpu.agrid +
                       4.0f * d * h * ek_parameters_gpu.agrid;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
@@ -2039,7 +2041,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //D00
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_D00]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_D00 )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_D00], EK_LINK_U00 )];
 
     if(j > 0.f)
     {
@@ -2055,7 +2057,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       4.0f * d_scaled * h * ek_parameters_gpu.agrid +
                       4.0f * d * h * ek_parameters_gpu.agrid;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
@@ -2077,7 +2079,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //0D0
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_0D0]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0D0 )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_0D0], EK_LINK_0U0 )];
 
     if(j > 0.f)
     {
@@ -2093,7 +2095,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       4.0f * d_scaled * h * ek_parameters_gpu.agrid +
                       4.0f * d * h * ek_parameters_gpu.agrid;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
@@ -2115,7 +2117,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //00D
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_00D]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00D )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_00D], EK_LINK_00U )];
 
     if(j > 0.f)
     {
@@ -2131,7 +2133,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       4.0f * d_scaled * h * ek_parameters_gpu.agrid +
                       4.0f * d * h * ek_parameters_gpu.agrid;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
@@ -2151,6 +2153,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
 
     }
     
+
     //12 Edges
     //UU0
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_UU0]];
@@ -2159,7 +2162,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = sqrtf(volume/ek_parameters_gpu.agrid);
 
@@ -2170,7 +2173,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2197,7 +2200,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = sqrtf(volume/ek_parameters_gpu.agrid);
 
@@ -2208,7 +2211,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2236,7 +2239,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = sqrtf(volume/ek_parameters_gpu.agrid);
 
@@ -2247,7 +2250,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2275,7 +2278,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = sqrtf(volume/ek_parameters_gpu.agrid);
 
@@ -2286,7 +2289,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2313,7 +2316,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = sqrtf(volume/ek_parameters_gpu.agrid);
 
@@ -2324,7 +2327,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2352,7 +2355,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     if(j < 0.f)
     {
 
-      volume = j/node_density;
+      volume = - j/node_density;
 
       d = sqrtf(volume/ek_parameters_gpu.agrid);
 
@@ -2363,7 +2366,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2386,7 +2389,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //DD0
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_DD0]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_DD0 )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_DD0], EK_LINK_UU0 )];
 
     if(j > 0.f)
     {
@@ -2402,7 +2405,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2424,7 +2427,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //DU0
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_DU0]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_DU0 )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_DU0], EK_LINK_UD0 )];
 
     if(j > 0.f)
     {
@@ -2440,7 +2443,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2463,7 +2466,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //D0D
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_D0D]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_D0D )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_D0D], EK_LINK_U0U )];
 
     if(j > 0.f)
     {
@@ -2479,7 +2482,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2498,11 +2501,11 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
       flux[EK_LINK_0DD] += j_edge;
 
     }
-    
+
     
     //D0U
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_D0U]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_D0U )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_D0U], EK_LINK_U0D )];
 
     if(j > 0.f)
     {
@@ -2518,7 +2521,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2540,7 +2543,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //0DD
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_0DD]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0DD )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_0DD], EK_LINK_0UU )];
 
     if(j > 0.f)
     {
@@ -2556,7 +2559,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2579,7 +2582,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     
     //0DU
     node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_0DU]];
-    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0DU )];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( neighborindex[EK_LINK_0DU], EK_LINK_0UD )];
 
     if(j > 0.f)
     {
@@ -2595,7 +2598,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                       2.0f * d * d * h +
                       4.0f * d_scaled * d_scaled * h;
 
-      node_density_reduced = node_density * volume_prime / volume;
+      node_density_reduced = node_density * volume_scaled / volume;
 
       j_face = d_scaled * d_scaled * ek_parameters_gpu.agrid * node_density_reduced;
       j_side = d * d * h * node_density_reduced;
@@ -2614,9 +2617,8 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
       flux[EK_LINK_D0U] += j_edge;
 
     }
-    
-    
-    
+
+
     force[0] = - 2.0f * flux[EK_LINK_U00] * ek_parameters_gpu.agrid / ek_parameters_gpu.time_step
                + 2.0f * flux[EK_LINK_D00] * ek_parameters_gpu.agrid / ek_parameters_gpu.time_step
                - 2.0f * flux[EK_LINK_UU0] * ek_parameters_gpu.agrid / ek_parameters_gpu.time_step
