@@ -1921,8 +1921,10 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     neighborindex[EK_LINK_0DU] = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
 
     
+    //6 Faces
+    
     //U00
-    node_density = ek_parameters_gpu.rho[species_index][node_index_U00];
+    node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_U00]];
     j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )];
 
     if(j < 0.f)
@@ -1949,13 +1951,203 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
 
       flux[EK_LINK_UU0] += j_edge;
       flux[EK_LINK_UD0] += j_edge;
-      flux[EK_LINK_DD0] += j_edge;
-      flux[EK_LINK_DU0] += j_edge;
+      flux[EK_LINK_U0U] += j_edge;
+      flux[EK_LINK_U0D] += j_edge;
 
       flux[EK_LINK_0U0] += j_side;
       flux[EK_LINK_0D0] += j_side;
       flux[EK_LINK_00U] += j_side;
       flux[EK_LINK_00D] += j_side;
+
+    }
+    
+    //0U0
+    node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_0U0]];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )];
+
+    if(j < 0.f)
+    {
+
+      volume = j/node_density;
+
+      d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
+
+      d_scaled = (s - 1.0f)*d;
+
+      volume_scaled = d * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      4.0f * d_scaled * h * ek_parameters_gpu.agrid +
+                      4.0f * d * h * ek_parameters_gpu.agrid;
+
+      node_density_reduced = node_density * volume_prime / volume;
+
+      j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
+      j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
+      j_edge = d_scaled * h * ek_parameters_gpu.agrid * node_density_reduced;
+
+      flux[EK_LINK_0U0] += j_face;
+
+      flux[EK_LINK_UU0] += j_edge;
+      flux[EK_LINK_0UU] += j_edge;
+      flux[EK_LINK_DU0] += j_edge;
+      flux[EK_LINK_0UD] += j_edge;
+
+      flux[EK_LINK_U00] += j_side;
+      flux[EK_LINK_D00] += j_side;
+      flux[EK_LINK_00U] += j_side;
+      flux[EK_LINK_00D] += j_side;
+
+    }
+    
+    //00U
+    node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_00U]];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )];
+
+    if(j < 0.f)
+    {
+
+      volume = j/node_density;
+
+      d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
+
+      d_scaled = (s - 1.0f)*d;
+
+      volume_scaled = d * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      4.0f * d_scaled * h * ek_parameters_gpu.agrid +
+                      4.0f * d * h * ek_parameters_gpu.agrid;
+
+      node_density_reduced = node_density * volume_prime / volume;
+
+      j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
+      j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
+      j_edge = d_scaled * h * ek_parameters_gpu.agrid * node_density_reduced;
+
+      flux[EK_LINK_00U] += j_face;
+
+      flux[EK_LINK_D0U] += j_edge;
+      flux[EK_LINK_U0U] += j_edge;
+      flux[EK_LINK_0UU] += j_edge;
+      flux[EK_LINK_0DU] += j_edge;
+
+      flux[EK_LINK_0U0] += j_side;
+      flux[EK_LINK_0D0] += j_side;
+      flux[EK_LINK_U00] += j_side;
+      flux[EK_LINK_D00] += j_side;
+
+    }
+    
+    //D00
+    node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_D00]];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_D00 )];
+
+    if(j > 0.f)
+    {
+
+      volume = j/node_density;
+
+      d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
+
+      d_scaled = (s - 1.0f)*d;
+
+      volume_scaled = d * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      4.0f * d_scaled * h * ek_parameters_gpu.agrid +
+                      4.0f * d * h * ek_parameters_gpu.agrid;
+
+      node_density_reduced = node_density * volume_prime / volume;
+
+      j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
+      j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
+      j_edge = d_scaled * h * ek_parameters_gpu.agrid * node_density_reduced;
+
+      flux[EK_LINK_D00] += j_face;
+
+      flux[EK_LINK_DD0] += j_edge;
+      flux[EK_LINK_DU0] += j_edge;
+      flux[EK_LINK_D0D] += j_edge;
+      flux[EK_LINK_D0U] += j_edge;
+
+      flux[EK_LINK_0U0] += j_side;
+      flux[EK_LINK_0D0] += j_side;
+      flux[EK_LINK_00U] += j_side;
+      flux[EK_LINK_00D] += j_side;
+
+    }
+    
+    //0D0
+    node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_0D0]];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0D0 )];
+
+    if(j > 0.f)
+    {
+
+      volume = j/node_density;
+
+      d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
+
+      d_scaled = (s - 1.0f)*d;
+
+      volume_scaled = d * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      4.0f * d_scaled * h * ek_parameters_gpu.agrid +
+                      4.0f * d * h * ek_parameters_gpu.agrid;
+
+      node_density_reduced = node_density * volume_prime / volume;
+
+      j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
+      j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
+      j_edge = d_scaled * h * ek_parameters_gpu.agrid * node_density_reduced;
+
+      flux[EK_LINK_0D0] += j_face;
+
+      flux[EK_LINK_DD0] += j_edge;
+      flux[EK_LINK_0DD] += j_edge;
+      flux[EK_LINK_UD0] += j_edge;
+      flux[EK_LINK_0DU] += j_edge;
+
+      flux[EK_LINK_U00] += j_side;
+      flux[EK_LINK_D00] += j_side;
+      flux[EK_LINK_00U] += j_side;
+      flux[EK_LINK_00D] += j_side;
+
+    }
+    
+    //00D
+    node_density = ek_parameters_gpu.rho[species_index][neighborindex[EK_LINK_00D]];
+    j = ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00D )];
+
+    if(j > 0.f)
+    {
+
+      volume = j/node_density;
+
+      d = volume/(ek_parameters_gpu.agrid * ek_parameters_gpu.agrid);
+
+      d_scaled = (s - 1.0f)*d;
+
+      volume_scaled = d * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid +
+                      4.0f * d_scaled * h * ek_parameters_gpu.agrid +
+                      4.0f * d * h * ek_parameters_gpu.agrid;
+
+      node_density_reduced = node_density * volume_prime / volume;
+
+      j_face = d_scaled * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * node_density_reduced;
+      j_side = d * h * ek_parameters_gpu.agrid * node_density_reduced;
+      j_edge = d_scaled * h * ek_parameters_gpu.agrid * node_density_reduced;
+
+      flux[EK_LINK_00D] += j_face;
+
+      flux[EK_LINK_U0D] += j_edge;
+      flux[EK_LINK_D0D] += j_edge;
+      flux[EK_LINK_0DD] += j_edge;
+      flux[EK_LINK_0UD] += j_edge;
+
+      flux[EK_LINK_0U0] += j_side;
+      flux[EK_LINK_0D0] += j_side;
+      flux[EK_LINK_U00] += j_side;
+      flux[EK_LINK_D00] += j_side;
 
     }
     
@@ -1993,7 +2185,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                - 2.0f * flux[EK_LINK_0UD] * ek_parameters_gpu.agrid / ek_parameters_gpu.time_step
                + 2.0f * flux[EK_LINK_0DU] * ek_parameters_gpu.agrid / ek_parameters_gpu.time_step;
     
-    
+
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], flux[EK_LINK_U00] );
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_0U0 )], flux[EK_LINK_0U0] );
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_00U )], flux[EK_LINK_00U] );
