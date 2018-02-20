@@ -1816,18 +1816,6 @@ __global__ void ek_propagate_densities( unsigned int species_index
   }
 }
 
-__device__ void ek_add_flux( int node, int link, float value, unsigned int *neighborindex )
-{
-    if(link <= 8)
-    {
-        atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node, link )], value );
-    }
-    else
-    {
-        atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node, EK_LINK_U00 )], - value );
-    }
-}
-
 
 __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                                                    LB_parameters_gpu * ek_lbparameters_gpu,
