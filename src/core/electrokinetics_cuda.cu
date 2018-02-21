@@ -1883,6 +1883,16 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     neighborindex[EK_LINK_U0D] = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, nodepos[1], (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
     neighborindex[EK_LINK_0UD] = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] + 1) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
 
+    neighborindex[EK_LINK_DDD] = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    neighborindex[EK_LINK_UDD] = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    neighborindex[EK_LINK_DUD] = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] + 1) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    neighborindex[EK_LINK_DDU] = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] + 1 ) % ek_parameters_gpu.dim_z);
+    neighborindex[EK_LINK_UUD] = rhoindex_cartesian2linear((nodepos[0] + 1) % ek_parameters_gpu.dim_x, (nodepos[1] + 1) % ek_parameters_gpu.dim_y, (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
+    neighborindex[EK_LINK_DUU] = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, (nodepos[1] + 1 ) % ek_parameters_gpu.dim_y, (nodepos[2] + 1 ) % ek_parameters_gpu.dim_z);
+    neighborindex[EK_LINK_UDU] = rhoindex_cartesian2linear((nodepos[0] + 1 ) % ek_parameters_gpu.dim_x, (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
+    neighborindex[EK_LINK_UUU] = rhoindex_cartesian2linear((nodepos[0] + 1 ) % ek_parameters_gpu.dim_x, (nodepos[1] + 1) % ek_parameters_gpu.dim_y, (nodepos[2] + 1) % ek_parameters_gpu.dim_z);
+
+
     neighborindex[EK_LINK_D00] = rhoindex_cartesian2linear((nodepos[0] - 1 + ek_parameters_gpu.dim_x) % ek_parameters_gpu.dim_x, nodepos[1], nodepos[2]);
     neighborindex[EK_LINK_0D0] = rhoindex_cartesian2linear(nodepos[0], (nodepos[1] - 1 + ek_parameters_gpu.dim_y) % ek_parameters_gpu.dim_y, nodepos[2]);
     neighborindex[EK_LINK_00D] = rhoindex_cartesian2linear(nodepos[0], nodepos[1], (nodepos[2] - 1 + ek_parameters_gpu.dim_z) % ek_parameters_gpu.dim_z);
@@ -2646,9 +2656,9 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
 
     }
     
-    //printf("ForceX: %f \n",  force[0] );
-    //printf("ForceY: %f \n",  force[1] );
-    //printf("ForceZ: %f \n",  force[2] );
+    printf("ForceX: %f \n",  force[0] );
+    printf("ForceY: %f \n",  force[1] );
+    printf("ForceZ: %f \n",  force[2] );
 
   }
 }
