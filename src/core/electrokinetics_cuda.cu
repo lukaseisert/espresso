@@ -1818,9 +1818,10 @@ __global__ void ek_propagate_densities( unsigned int species_index
 
 
 __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
-                                                   LB_parameters_gpu * ek_lbparameters_gpu,
-                                                   unsigned int species_index
-                                                 ) {
+                             float * particle_force,
+                             LB_parameters_gpu * ek_lbparameters_gpu,
+                             unsigned int species_index
+                           ) {
 
   unsigned int index = ek_getThreadIndex();
   int nodepos[3];
@@ -2656,9 +2657,11 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
 
     }
     
-    printf("ForceX: %f \n",  force[0] );
-    printf("ForceY: %f \n",  force[1] );
-    printf("ForceZ: %f \n",  force[2] );
+    //printf("ForceX: %f \n",  force[0] );
+    //printf("ForceY: %f \n",  force[1] );
+    //printf("ForceZ: %f \n",  force[2] );
+
+    particle_force[ 3 * index + 0 ] = 0.1f; // force[0];
 
   }
 }
@@ -3208,7 +3211,7 @@ void ek_integrate() {
     if ( lbpar_gpu.number_of_particles != 0 )
     {
         KERNELCALL( ek_apply_ev, particle_dim_grid, threads_per_block, 
-		  ( gpu_get_particle_pointer(), ek_lbparameters_gpu, i ) );
+		  ( gpu_get_particle_pointer(), gpu_get_particle_force_pointer(), ek_lbparameters_gpu, i ) );
     }
               
 #ifdef EK_BOUNDARIES
