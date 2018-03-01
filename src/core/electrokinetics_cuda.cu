@@ -2274,12 +2274,13 @@ force[2] -= ( 2.f * j_face + j_side + 2.f * j_corner + 2.f * j_edge ) * v;
 }
 
     
-    printf("ForceX: %f \n",  force[0] );
-    printf("ForceY: %f \n",  force[1] );
-    printf("ForceZ: %f \n",  force[2] );
+    //printf("ForceX: %f \n",  force[0] );
+    //printf("ForceY: %f \n",  force[1] );
+    //printf("ForceZ: %f \n",  force[2] );
 
-    particle_force[ 3 * index + 0 ] = 0.1f; // force[0];
-
+    //printf("ForceX: %f \n", particle_force[ 3 * index + 0 ] );
+    //particle_force[ 3 * index + 0 ] = 1.f; // force[0];
+    //printf("ForceX: %f \n", particle_force[ 3 * index + 0 ] ); 
   }
 }
 
