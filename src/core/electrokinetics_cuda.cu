@@ -1843,7 +1843,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
   float j_side;
   float j_corner;
 
-  float s = 1.f + 0.0186124f/1000.f;
+  float s = ek_parameters_gpu.s[species_index];
 
   float v = ek_parameters_gpu.agrid / ek_parameters_gpu.time_step;
   
@@ -4091,6 +4091,16 @@ int ek_set_D( int species, double D ) {
   ek_parameters.D[ ek_parameters.species_index[ species ] ] = D;
   ek_parameters.d[ ek_parameters.species_index[ species ] ] = D / ( 1.0 + 2.0 * sqrt(2.0)) ;
 
+  
+  return 0;
+}
+
+int ek_set_s( int species, double s ) {
+
+
+  ek_init_species( species );
+  
+  ek_parameters.s[ ek_parameters.species_index[ species ] ] = s;
   
   return 0;
 }

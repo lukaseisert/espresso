@@ -52,6 +52,7 @@ IF ELECTROKINETICS and CUDA:
             float D[MAX_NUMBER_OF_SPECIES]
             float d[MAX_NUMBER_OF_SPECIES]
             float valency[MAX_NUMBER_OF_SPECIES]
+            float s[MAX_NUMBER_OF_SPECIES];
             float ext_force[3][MAX_NUMBER_OF_SPECIES]
             char* node_is_catalyst
             # IF EK_ELECTROSTATIC_COUPLING:
@@ -87,6 +88,7 @@ IF ELECTROKINETICS and CUDA:
         int ek_set_lb_force(double* ext_force)
         int ek_set_density(int species, double density)
         int ek_set_D(int species, double D)
+        int ek_set_s(int species, double s);
         int ek_set_valency(int species, double valency)
         int ek_set_ext_force(int species, double ext_force_x, double ext_force_y, double ext_force_z)
         int ek_set_stencil(int stencil)

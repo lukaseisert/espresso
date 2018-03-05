@@ -256,13 +256,14 @@ IF ELECTROKINETICS:
                     raise KeyError("%s is not a vaild key" % k)
 
         def valid_keys(self):
-            return "density", "D", "valency", "ext_force"
+            return "density", "D", "valency", "ext_force", "s"
 
         def required_keys(self):
             return ["density", "D", "valency"]
 
         def default_params(self):
-            return {"ext_force": [0, 0, 0]}
+            return {"ext_force": [0, 0, 0],
+                    "s": 1.0}
 
         def _get_params_from_es_core(self):
             return {"density": ek_parameters.density[ek_parameters.species_index[self.id]],
@@ -270,10 +271,12 @@ IF ELECTROKINETICS:
                     "valency": ek_parameters.valency[ek_parameters.species_index[self.id]],
                     "ext_force": [ek_parameters.ext_force[0][ek_parameters.species_index[self.id]],
                                   ek_parameters.ext_force[1][ek_parameters.species_index[self.id]],
-                                  ek_parameters.ext_force[2][ek_parameters.species_index[self.id]]]}
+                                  ek_parameters.ext_force[2][ek_parameters.species_index[self.id]]],
+                    "s": ek_parameters.s[ek_parameters.species_index[self.id]]}
 
         def _set_params_in_es_core(self):
             ek_set_D(self.id, self._params["D"])
+            ek_set_s(self.id, self._params["s"])
             ek_set_valency(self.id, self._params["valency"])
             ek_set_density(self.id, self._params["density"])
             ek_set_ext_force(self.id, self._params["ext_force"][0], self._params["ext_force"][1], self._params["ext_force"][2])
