@@ -102,7 +102,6 @@ void force_calc() {
     ghost_communicator(&cell_structure.update_ghost_pos_comm);
   }
 #endif
-
   
   espressoSystemInterface.update();
 
@@ -123,6 +122,8 @@ void force_calc() {
       (this_node == 0))
     lb_calc_particle_lattice_ia_gpu();
 #endif // LB_GPU
+    
+ek_test_force();
 
 #ifdef ELECTROSTATICS
   if (iccp3m_initialized && iccp3m_cfg.set_flag)

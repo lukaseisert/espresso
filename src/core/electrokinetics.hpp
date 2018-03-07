@@ -94,6 +94,9 @@ typedef struct {
   float ext_force[3][MAX_NUMBER_OF_SPECIES];
   char* node_is_catalyst;
   float s[MAX_NUMBER_OF_SPECIES];
+  
+  float* ev_particle_force;
+  
 } EK_parameters;
 
 #endif
@@ -192,6 +195,8 @@ int ek_neutralize_system(int species);
 int ek_save_checkpoint(char* filename);
 int ek_load_checkpoint(char* filename);
   
+void ek_test_force();
+
 #ifdef EK_BOUNDARIES
 void ek_init_species_density_wallcharge(ekfloat* wallcharge_species_density, int wallcharge_species);
 #endif

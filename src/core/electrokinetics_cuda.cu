@@ -1816,6 +1816,40 @@ __global__ void ek_propagate_densities( unsigned int species_index
   }
 }
 
+__global__ void ek_test_force_kernel(float * particle_force, LB_parameters_gpu * ek_lbparameters_gpu)
+{
+    unsigned int index = ek_getThreadIndex();
+    
+    if( index < ek_lbparameters_gpu->number_of_particles ) 
+    {
+        particle_force[ 3 * index + 0 ] += ek_parameters_gpu.ev_particle_force[0];
+        particle_force[ 3 * index + 1 ] += ek_parameters_gpu.ev_particle_force[1];
+        particle_force[ 3 * index + 2 ] += ek_parameters_gpu.ev_particle_force[2];
+        
+        ek_parameters_gpu.ev_particle_force[0] = 0.f;
+        ek_parameters_gpu.ev_particle_force[1] = 0.f;
+        ek_parameters_gpu.ev_particle_force[2] = 0.f;
+    }
+       
+}
+
+void ek_test_force()
+{
+    int threads_per_block = 64;
+    int blocks_per_grid_y = 4;
+    int particle_blocks_per_grid_x =
+            ( lbpar_gpu.number_of_particles + threads_per_block * blocks_per_grid_y - 1 ) /
+            ( threads_per_block * blocks_per_grid_y );
+        dim3 particle_dim_grid = make_uint3( particle_blocks_per_grid_x, blocks_per_grid_y, 1 );
+        
+    
+    if ( lbpar_gpu.number_of_particles != 0 )
+    {
+        KERNELCALL( ek_test_force_kernel, particle_dim_grid, threads_per_block, (gpu_get_particle_force_pointer(), ek_lbparameters_gpu) );
+    } 
+    
+}
+
 
 __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
                              float * particle_force,
@@ -1906,7 +1940,7 @@ __global__ void ek_apply_ev( CUDA_particle_data * particle_data,
     //Initial repulsion 
     node_density = ek_parameters_gpu.rho[species_index][node_index];
 
-    j_face = node_density * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * (s - 1.f) / ( 6.f * s * s - 6.f * s + 2.f );
+    j_face = node_density * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * ek_parameters_gpu.agrid * (s - 1.f) / ( 6.f * s * s - 6.f * s + 2.f ) * ek_parameters_gpu.time_step * (1.f + 2.f * sqrt(2.f));
     j_edge = j_face * ( s - 1.f ) / 2.f;
 
     atomicadd( &ek_parameters_gpu.j[jindex_getByRhoLinear( node_index, EK_LINK_U00 )], j_face );
@@ -2303,15 +2337,17 @@ force[2] -= ( 2.f * j_face + j_side + 2.f * j_corner + 2.f * j_edge ) * v;
 }
 
 
-
+    ek_parameters_gpu.ev_particle_force[0] += force[0];
+    ek_parameters_gpu.ev_particle_force[1] += force[1];
+    ek_parameters_gpu.ev_particle_force[2] += force[2];
     
     //printf("ForceX: %f \n",  force[0] );
     //printf("ForceY: %f \n",  force[1] );
     //printf("ForceZ: %f \n",  force[2] );
 
-    //printf("ForceX: %f \n", particle_force[ 3 * index + 0 ] );
-    //particle_force[ 3 * index + 0 ] = 1.f; // force[0];
-    //printf("ForceX: %f \n", particle_force[ 3 * index + 0 ] ); 
+    //printf("ForceBefore: %f \n", particle_force[ 3 * index + 0 ] );
+    //particle_force[ 3 * index + 0 ] += 1.f; // force[0];
+    //printf("ForceAfter: %f \n", particle_force[ 3 * index + 0 ] ); 
   }
 }
 
@@ -3032,6 +3068,7 @@ int ek_init() {
     cuda_safe_mem( cudaMalloc( (void**) &ek_parameters.lb_force_previous,
                              ek_parameters.number_of_nodes * 3 * sizeof( float ) ) );
 
+    cuda_safe_mem( cudaMalloc( (void**) &ek_parameters.ev_particle_force, 3 * sizeof( float ) ) );
 
 #ifdef EK_ELECTROSTATIC_COUPLING
     if(ek_parameters.es_coupling) {
